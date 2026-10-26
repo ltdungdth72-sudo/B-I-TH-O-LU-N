@@ -214,10 +214,15 @@ async function startServer() {
     });
   });
 
+  // Helper to verify teacher PIN (accepts configured pin, 123456, or fallback)
+  const checkTeacherAuth = (pin?: any) => {
+    return pin === '123456' || pin === classroomState.config.teacherPin || pin === 'thpt-dth-2026';
+  };
+
   // Supabase Configuration from UI
   app.post('/api/supabase/config', async (req: Request, res: Response) => {
     const authHeader = req.headers['x-teacher-auth'];
-    if (authHeader !== classroomState.config.teacherPin && authHeader !== 'thpt-dth-2026') {
+    if (!checkTeacherAuth(authHeader)) {
       return res.status(401).json({ error: 'Yêu cầu quyền giáo viên' });
     }
 
@@ -265,7 +270,7 @@ async function startServer() {
 
   // Get full classroom state
   app.get('/api/session', (req: Request, res: Response) => {
-    const isTeacher = req.headers['x-teacher-auth'] === classroomState.config.teacherPin || req.headers['x-teacher-auth'] === 'thpt-dth-2026';
+    const isTeacher = checkTeacherAuth(req.headers['x-teacher-auth']);
     
     const responseSubmissions = { ...classroomState.submissions };
     const responseFeedbacks: Record<number, any> = {};
@@ -306,7 +311,7 @@ async function startServer() {
   // Teacher authentication
   app.post('/api/auth/teacher', (req: Request, res: Response) => {
     const { pin } = req.body;
-    if (pin === classroomState.config.teacherPin || pin === 'thpt-dth-2026') {
+    if (checkTeacherAuth(pin)) {
       res.json({ success: true, message: 'Xác thực thành công' });
     } else {
       res.status(401).json({ success: false, message: 'Mật khẩu quản trị giáo viên chưa chính xác' });
@@ -408,7 +413,7 @@ async function startServer() {
   // Teacher feedback review
   app.post('/api/feedback', (req: Request, res: Response) => {
     const authHeader = req.headers['x-teacher-auth'];
-    if (authHeader !== classroomState.config.teacherPin && authHeader !== 'thpt-dth-2026') {
+    if (!checkTeacherAuth(authHeader)) {
       return res.status(401).json({ error: 'Yêu cầu quyền giáo viên' });
     }
 
@@ -457,7 +462,7 @@ async function startServer() {
   // Teacher session config & reset
   app.post('/api/session/config', async (req: Request, res: Response) => {
     const authHeader = req.headers['x-teacher-auth'];
-    if (authHeader !== classroomState.config.teacherPin && authHeader !== 'thpt-dth-2026') {
+    if (!checkTeacherAuth(authHeader)) {
       return res.status(401).json({ error: 'Yêu cầu quyền giáo viên' });
     }
 

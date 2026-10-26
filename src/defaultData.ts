@@ -110,7 +110,7 @@ export function createInitialState(): ClassroomState {
       topicTitle: 'Bản quyền nội dung số, quyền lợi của tác giả và cách sử dụng nội dung số phù hợp',
       isOpen: true,
       allowEditing: true,
-      teacherPin: 'thpt-dth-2026',
+      teacherPin: '123456',
       updatedAt: new Date().toISOString(),
     },
     topics: DEFAULT_TOPICS,

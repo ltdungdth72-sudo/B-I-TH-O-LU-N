@@ -62,7 +62,7 @@ export const TeacherDashboard: React.FC = () => {
     const ok = await loginTeacher(pinInput.trim());
     setIsLoggingIn(false);
     if (!ok) {
-      setPinError('Mật khẩu quản trị chưa đúng (Gợi ý mặc định: thpt-dth-2026)');
+      setPinError('Mật khẩu quản trị chưa đúng (Mật khẩu: 123456)');
     }
   };
 
@@ -92,7 +92,7 @@ export const TeacherDashboard: React.FC = () => {
                 autoFocus
               />
               <p className="text-[11px] text-slate-400 mt-1">
-                (Mã PIN mặc định: <span className="font-mono font-bold text-indigo-600">thpt-dth-2026</span>)
+                (Mật khẩu quản trị: <span className="font-mono font-bold text-indigo-600">123456</span>)
               </p>
             </div>
 

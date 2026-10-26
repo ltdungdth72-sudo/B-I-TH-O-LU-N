@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useClassroom } from '../context/ClassroomContext';
 import { Topic, Question } from '../types';
+import { DEFAULT_QUESTIONS, DEFAULT_TOPICS } from '../defaultData';
 
 export const StudentView: React.FC = () => {
   const {
@@ -52,9 +53,13 @@ export const StudentView: React.FC = () => {
   const currentSubmission = selectedGroupId && state?.submissions ? state.submissions[selectedGroupId] : null;
   const currentFeedback = selectedGroupId && state?.feedbacks ? state.feedbacks[selectedGroupId] : null;
 
+  const allTopics = state?.topics && state.topics.length > 0 ? state.topics : DEFAULT_TOPICS;
+  const allQuestions = state?.questions && state.questions.length > 0 ? state.questions : DEFAULT_QUESTIONS;
+  const isSessionClosed = state?.config?.isOpen === false;
+
   // Find topic for current group
-  const currentTopic: Topic | undefined = selectedGroupId && state?.topics
-    ? state.topics.find((t) => t.assignedGroups.includes(selectedGroupId))
+  const currentTopic: Topic | undefined = selectedGroupId
+    ? allTopics.find((t) => t.assignedGroups.includes(selectedGroupId))
     : undefined;
 
   // Load initial content from server or localStorage
@@ -167,7 +172,7 @@ export const StudentView: React.FC = () => {
       return;
     }
 
-    if (!state?.config?.isOpen) {
+    if (isSessionClosed) {
       setErrorMessage('Buổi thảo luận hiện đã đóng. Giáo viên không nhận bài nộp mới.');
       return;
     }
@@ -278,7 +283,7 @@ export const StudentView: React.FC = () => {
   }
 
   const isSubmitted = currentSubmission?.status === 'submitted' || currentSubmission?.status === 'reviewed';
-  const canEdit = isEditing || !isSubmitted;
+  const canEdit = !isSessionClosed && (isEditing || !isSubmitted);
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-6 pb-28">
@@ -341,7 +346,7 @@ export const StudentView: React.FC = () => {
       </div>
 
       {/* Session closed warning */}
-      {!state?.config?.isOpen && (
+      {isSessionClosed && (
         <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-xs flex items-center gap-3 mb-4">
           <Lock className="w-5 h-5 shrink-0 text-amber-600" />
           <div>
@@ -443,7 +448,7 @@ export const StudentView: React.FC = () => {
 
       {/* 3 Mandatory Questions */}
       <div className="space-y-5">
-        {state?.questions.map((q, idx) => {
+        {allQuestions.map((q, idx) => {
           const val = answers[q.id] || '';
           const wordCount = getWordCount(val);
           const charCount = val.length;
@@ -549,7 +554,7 @@ export const StudentView: React.FC = () => {
               <button
                 type="button"
                 onClick={handleInitiateSubmit}
-                disabled={isSubmitting || !state?.config?.isOpen}
+                disabled={isSubmitting || isSessionClosed}
                 className="flex-2 min-h-[46px] rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98] shadow-md shadow-indigo-600/20 disabled:opacity-50"
               >
                 <Send className="w-4 h-4" />
@@ -562,7 +567,7 @@ export const StudentView: React.FC = () => {
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Đã hoàn thành lượt nộp</span>
               </span>
-              {state?.config?.allowEditing && state?.config?.isOpen && (
+              {state?.config?.allowEditing && !isSessionClosed && (
                 <button
                   onClick={() => setIsEditing(true)}
                   className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors"

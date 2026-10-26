@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import { ClassroomState, GroupSubmission, TeacherFeedback } from '../types';
+import { createInitialState } from '../defaultData';
 import { soundManager } from '../utils/sound';
 
 interface ClassroomContextType {
-  state: ClassroomState | null;
+  state: ClassroomState;
   loading: boolean;
   connected: boolean;
   role: 'welcome' | 'student' | 'teacher';
@@ -37,8 +38,8 @@ interface ClassroomContextType {
 const ClassroomContext = createContext<ClassroomContextType | null>(null);
 
 export const ClassroomProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<ClassroomState | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [state, setState] = useState<ClassroomState>(createInitialState);
+  const [loading, setLoading] = useState<boolean>(false);
   const [connected, setConnected] = useState<boolean>(false);
   const [role, setRoleState] = useState<'welcome' | 'student' | 'teacher'>('welcome');
   const [selectedGroupId, setSelectedGroupIdState] = useState<number | null>(null);
