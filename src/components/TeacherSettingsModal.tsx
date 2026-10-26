@@ -22,6 +22,56 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({ onCl
   const [toast, setToast] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<'reset_submissions' | 'reset_all' | null>(null);
 
+  // Supabase state
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState<string>('');
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState<string>('');
+  const [supabaseConnected, setSupabaseConnected] = useState<boolean>(false);
+  const [isTestingSupabase, setIsTestingSupabase] = useState<boolean>(false);
+  const [supabaseMsg, setSupabaseMsg] = useState<string | null>(null);
+  const [showSqlGuide, setShowSqlGuide] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    fetch('/api/supabase/status')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.url) setSupabaseUrlInput(data.url);
+        setSupabaseConnected(Boolean(data.connected));
+        if (data.message) setSupabaseMsg(data.message);
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleConnectSupabase = async () => {
+    setIsTestingSupabase(true);
+    setSupabaseMsg(null);
+    try {
+      const res = await fetch('/api/supabase/config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-teacher-auth': teacherPin,
+        },
+        body: JSON.stringify({ url: supabaseUrlInput, key: supabaseKeyInput }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setSupabaseConnected(true);
+        if (data.normalizedUrl) {
+          setSupabaseUrlInput(data.normalizedUrl);
+        }
+        setSupabaseMsg(data.message || '✓ Kết nối Supabase thành công và đồng bộ dữ liệu!');
+      } else {
+        setSupabaseConnected(false);
+        setSupabaseMsg(`✕ Lỗi: ${data.error || 'Không thể kết nối Supabase'}`);
+      }
+    } catch (e: any) {
+      setSupabaseConnected(false);
+      setSupabaseMsg(`✕ Lỗi kết nối: ${e.message}`);
+    } finally {
+      setIsTestingSupabase(false);
+    }
+  };
+
   const handleSaveConfig = async () => {
     setIsSaving(true);
     const success = await updateConfig({
@@ -177,6 +227,95 @@ export const TeacherSettingsModal: React.FC<TeacherSettingsModalProps> = ({ onCl
               placeholder="thpt-dth-2026"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg font-mono focus:outline-indigo-500"
             />
+          </div>
+
+          {/* Supabase Cloud Database Configuration */}
+          <div className="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="font-bold text-emerald-900 block flex items-center gap-1.5">
+                  <span>⚡ Kết nối Cơ sở dữ liệu Supabase Đám mây</span>
+                </span>
+                <span className="text-[11px] text-emerald-700">
+                  Đồng bộ dữ liệu 12 nhóm và nhận xét lên dự án Supabase của bạn
+                </span>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                supabaseConnected ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-700'
+              }`}>
+                {supabaseConnected ? 'Đã kết nối' : 'Chưa cấu hình'}
+              </span>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                Supabase Project URL:
+              </label>
+              <input
+                type="text"
+                value={supabaseUrlInput}
+                onChange={(e) => setSupabaseUrlInput(e.target.value)}
+                placeholder="https://xyzabcdefghijklm.supabase.co"
+                className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono text-xs focus:outline-emerald-500 bg-white"
+              />
+              <div className="mt-1.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-2 text-[11px] leading-relaxed">
+                <span className="font-bold block text-amber-950 mb-0.5">📌 Lưu ý về link Supabase:</span>
+                <span className="block">
+                  • Phải lấy đúng <b>Project URL</b> trong: <i>Project Settings (bánh răng) → API → Project URL</i> (có đuôi <b>.supabase.co</b>).
+                </span>
+                <span className="block text-rose-700 font-medium mt-0.5">
+                  • Không copy link trên thanh địa chỉ trình duyệt (link dạng <i>supabase.com/dashboard/...</i> sẽ bị báo lỗi).
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                Supabase Anon / Service Key:
+              </label>
+              <input
+                type="password"
+                value={supabaseKeyInput}
+                onChange={(e) => setSupabaseKeyInput(e.target.value)}
+                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+                className="w-full px-3 py-1.5 border border-slate-300 rounded-lg font-mono text-xs focus:outline-emerald-500 bg-white"
+              />
+            </div>
+
+            {supabaseMsg && (
+              <div className={`p-2.5 rounded-lg text-[11px] ${
+                supabaseConnected ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+              }`}>
+                {supabaseMsg}
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isTestingSupabase || !supabaseUrlInput || !supabaseKeyInput}
+                onClick={handleConnectSupabase}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition-colors flex items-center gap-1"
+              >
+                {isTestingSupabase ? 'Đang kiểm tra...' : 'Kiểm tra & Kết nối Supabase'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowSqlGuide(!showSqlGuide)}
+                className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 font-semibold rounded-lg text-xs hover:bg-emerald-50 transition-colors"
+              >
+                {showSqlGuide ? 'Ẩn câu lệnh SQL' : 'Xem câu lệnh SQL tạo bảng'}
+              </button>
+            </div>
+
+            {showSqlGuide && (
+              <div className="mt-2 p-3 bg-slate-900 text-slate-200 rounded-lg text-[11px] font-mono overflow-x-auto max-h-40 border border-slate-700">
+                <p className="text-emerald-400 font-bold mb-1">// Mở Supabase Dashboard -&gt; SQL Editor -&gt; Dán đoạn mã này và bấm RUN:</p>
+                <pre>{`-- Tạo bảng classroom_config, group_submissions, teacher_feedbacks
+-- Tải file /supabase_schema.sql trong dự án hoặc copy từ hướng dẫn.`}</pre>
+              </div>
+            )}
           </div>
 
           {/* Danger zone / Reset */}

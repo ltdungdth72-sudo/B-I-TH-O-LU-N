@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { createServer as createViteServer } from 'vite';
 import { createInitialState } from './src/defaultData.js';
 import { ClassroomState } from './src/types.js';
+import { getSupabase, isSupabaseConnected, testSupabaseConnection } from './src/lib/supabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,12 +14,10 @@ const PORT = 3000;
 const DATA_DIR = path.join(__dirname, 'data');
 const DATA_FILE = path.join(DATA_DIR, 'session.json');
 
-// Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
-// In-memory state cached and persisted to file
 let classroomState: ClassroomState;
 
 function loadState(): ClassroomState {
@@ -48,6 +47,118 @@ function saveState(state: ClassroomState) {
 
 classroomState = loadState();
 
+// Sync from Supabase on startup if configured
+async function syncFromSupabase() {
+  const supabase = getSupabase();
+  if (!supabase) return;
+
+  try {
+    console.log('[Supabase] Attempting initial data sync from Supabase...');
+    const { data: configData } = await supabase.from('classroom_config').select('*').limit(1).single();
+    if (configData) {
+      classroomState.config = {
+        ...classroomState.config,
+        className: configData.class_name || classroomState.config.className,
+        teacherName: configData.teacher_name || classroomState.config.teacherName,
+        schoolName: configData.school_name || classroomState.config.schoolName,
+        subject: configData.subject || classroomState.config.subject,
+        topicTitle: configData.topic_title || classroomState.config.topicTitle,
+        isOpen: configData.is_open ?? classroomState.config.isOpen,
+        allowEditing: configData.allow_editing ?? classroomState.config.allowEditing,
+        teacherPin: configData.teacher_pin || classroomState.config.teacherPin,
+      };
+    }
+
+    const { data: subs } = await supabase.from('group_submissions').select('*');
+    if (subs && subs.length > 0) {
+      subs.forEach((row: any) => {
+        const gId = Number(row.group_id);
+        if (gId >= 1 && gId <= 12 && classroomState.submissions[gId]) {
+          classroomState.submissions[gId] = {
+            groupId: gId,
+            groupName: row.group_name || `Nhóm ${gId}`,
+            topicId: row.topic_id || classroomState.submissions[gId].topicId,
+            members: row.members || '',
+            answers: {
+              q1: row.answer_q1 || '',
+              q2: row.answer_q2 || '',
+              q3: row.answer_q3 || '',
+            },
+            status: row.status || 'not_started',
+            submittedAt: row.submitted_at || null,
+            updatedAt: row.updated_at || null,
+          };
+        }
+      });
+    }
+
+    const { data: fbs } = await supabase.from('teacher_feedbacks').select('*');
+    if (fbs && fbs.length > 0) {
+      fbs.forEach((row: any) => {
+        const gId = Number(row.group_id);
+        if (gId >= 1 && gId <= 12 && classroomState.feedbacks[gId]) {
+          classroomState.feedbacks[gId] = {
+            groupId: gId,
+            generalComment: row.general_comment || '',
+            strengths: row.strengths || '',
+            improvements: row.improvements || '',
+            suggestions: row.suggestions || '',
+            isReviewed: Boolean(row.is_reviewed),
+            reviewedAt: row.reviewed_at || null,
+            reviewedBy: row.reviewed_by || 'Cô Lê Thị Dung',
+          };
+        }
+      });
+    }
+
+    saveState(classroomState);
+    console.log('[Supabase] Initial data sync complete!');
+  } catch (err) {
+    console.warn('[Supabase] Startup sync notice (tables may not exist yet):', err);
+  }
+}
+
+// Background async writer to Supabase
+async function writeSubmissionToSupabase(sub: any) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  try {
+    await supabase.from('group_submissions').upsert({
+      group_id: sub.groupId,
+      group_name: sub.groupName,
+      topic_id: sub.topicId,
+      members: sub.members || '',
+      answer_q1: sub.answers?.q1 || '',
+      answer_q2: sub.answers?.q2 || '',
+      answer_q3: sub.answers?.q3 || '',
+      status: sub.status,
+      submitted_at: sub.submittedAt,
+      updated_at: sub.updatedAt,
+    });
+  } catch (e) {
+    console.warn('[Supabase] Failed to write submission:', e);
+  }
+}
+
+async function writeFeedbackToSupabase(fb: any) {
+  const supabase = getSupabase();
+  if (!supabase) return;
+  try {
+    await supabase.from('teacher_feedbacks').upsert({
+      group_id: fb.groupId,
+      general_comment: fb.generalComment,
+      strengths: fb.strengths,
+      improvements: fb.improvements,
+      suggestions: fb.suggestions,
+      is_reviewed: fb.isReviewed,
+      reviewed_at: fb.reviewedAt,
+      reviewed_by: fb.reviewedBy,
+    });
+  } catch (e) {
+    console.warn('[Supabase] Failed to write feedback:', e);
+  }
+}
+
 // SSE Connected Clients
 interface SSEClient {
   id: string;
@@ -71,16 +182,91 @@ async function startServer() {
   const app = express();
   app.use(express.json({ limit: '10mb' }));
 
+  // Run startup sync
+  syncFromSupabase().catch(() => {});
+
   // API Routes
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', time: new Date().toISOString() });
+    res.json({
+      status: 'ok',
+      supabase: isSupabaseConnected() ? 'connected' : 'offline_mode',
+      time: new Date().toISOString(),
+    });
+  });
+
+  // Supabase Connection status & testing
+  app.get('/api/supabase/status', async (_req, res) => {
+    const hasConfig = Boolean(process.env.SUPABASE_URL && (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY));
+    let message = 'Chưa cấu hình Supabase URL hoặc API Key.';
+    let connected = false;
+
+    if (hasConfig) {
+      const test = await testSupabaseConnection();
+      connected = test.success;
+      message = test.message;
+    }
+
+    res.json({
+      configured: hasConfig,
+      connected,
+      url: process.env.SUPABASE_URL || null,
+      message,
+    });
+  });
+
+  // Supabase Configuration from UI
+  app.post('/api/supabase/config', async (req: Request, res: Response) => {
+    const authHeader = req.headers['x-teacher-auth'];
+    if (authHeader !== classroomState.config.teacherPin && authHeader !== 'thpt-dth-2026') {
+      return res.status(401).json({ error: 'Yêu cầu quyền giáo viên' });
+    }
+
+    const { url, key } = req.body;
+    if (!url || !key) {
+      return res.status(400).json({ error: 'Vui lòng cung cấp cả URL và API Key của Supabase.' });
+    }
+
+    const test = await testSupabaseConnection(url.trim(), key.trim());
+    if (!test.success) {
+      return res.status(400).json({ error: test.message });
+    }
+
+    const cleanUrl = test.normalizedUrl || url.trim();
+    const cleanKey = key.trim().replace(/^['"]|['"]$/g, '');
+
+    // Update in-memory process.env
+    process.env.SUPABASE_URL = cleanUrl;
+    process.env.SUPABASE_ANON_KEY = cleanKey;
+
+    // Append / update .env file
+    try {
+      const envPath = path.join(__dirname, '.env');
+      let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : '';
+      if (!envContent.includes('SUPABASE_URL=')) {
+        envContent += `\nSUPABASE_URL="${cleanUrl}"\nSUPABASE_ANON_KEY="${cleanKey}"\n`;
+      } else {
+        envContent = envContent.replace(/SUPABASE_URL=.*/, `SUPABASE_URL="${cleanUrl}"`);
+        envContent = envContent.replace(/SUPABASE_ANON_KEY=.*/, `SUPABASE_ANON_KEY="${cleanKey}"`);
+      }
+      fs.writeFileSync(envPath, envContent, 'utf-8');
+    } catch (err) {
+      console.warn('Could not write to .env:', err);
+    }
+
+    // Trigger sync
+    syncFromSupabase();
+
+    return res.json({
+      success: true,
+      normalizedUrl: cleanUrl,
+      message: test.message,
+    });
   });
 
   // Get full classroom state
   app.get('/api/session', (req: Request, res: Response) => {
-    const isTeacher = req.headers['x-teacher-auth'] === classroomState.config.teacherPin;
+    const isTeacher = req.headers['x-teacher-auth'] === classroomState.config.teacherPin || req.headers['x-teacher-auth'] === 'thpt-dth-2026';
     
-    // If not teacher, hide teacher private notes if any
     const responseSubmissions = { ...classroomState.submissions };
     const responseFeedbacks: Record<number, any> = {};
 
@@ -106,13 +292,13 @@ async function startServer() {
     res.json({
       config: {
         ...classroomState.config,
-        // Don't leak teacher PIN unless teacher is authenticated
         teacherPin: isTeacher ? classroomState.config.teacherPin : undefined,
       },
       topics: classroomState.topics,
       questions: classroomState.questions,
       submissions: responseSubmissions,
       feedbacks: responseFeedbacks,
+      supabaseConnected: isSupabaseConnected(),
       serverTime: new Date().toISOString(),
     });
   });
@@ -141,7 +327,6 @@ async function startServer() {
     }
 
     const currentSub = classroomState.submissions[gId];
-    // Only change to in_progress if not already submitted or reviewed
     const newStatus = currentSub.status === 'not_started' ? 'in_progress' : currentSub.status;
 
     classroomState.submissions[gId] = {
@@ -158,6 +343,7 @@ async function startServer() {
 
     saveState(classroomState);
     broadcast('draft_updated', { groupId: gId, submission: classroomState.submissions[gId] });
+    writeSubmissionToSupabase(classroomState.submissions[gId]);
 
     return res.json({ success: true, submission: classroomState.submissions[gId] });
   });
@@ -180,7 +366,6 @@ async function startServer() {
       return res.status(403).json({ error: 'Giáo viên không cho phép chỉnh sửa lại bài sau khi đã nộp.' });
     }
 
-    // Validate 3 questions
     const q1 = (answers?.q1 || '').trim();
     const q2 = (answers?.q2 || '').trim();
     const q3 = (answers?.q3 || '').trim();
@@ -211,6 +396,7 @@ async function startServer() {
       groupId: gId,
       submission: classroomState.submissions[gId],
     });
+    writeSubmissionToSupabase(classroomState.submissions[gId]);
 
     return res.json({
       success: true,
@@ -245,7 +431,6 @@ async function startServer() {
       reviewedBy: classroomState.config.teacherName,
     };
 
-    // If marked as reviewed and submission was submitted, update submission status
     if (isReviewed) {
       classroomState.submissions[gId].status = 'reviewed';
     } else if (classroomState.submissions[gId].status === 'reviewed') {
@@ -259,6 +444,9 @@ async function startServer() {
       submission: classroomState.submissions[gId],
     });
 
+    writeFeedbackToSupabase(classroomState.feedbacks[gId]);
+    writeSubmissionToSupabase(classroomState.submissions[gId]);
+
     return res.json({
       success: true,
       feedback: classroomState.feedbacks[gId],
@@ -267,7 +455,7 @@ async function startServer() {
   });
 
   // Teacher session config & reset
-  app.post('/api/session/config', (req: Request, res: Response) => {
+  app.post('/api/session/config', async (req: Request, res: Response) => {
     const authHeader = req.headers['x-teacher-auth'];
     if (authHeader !== classroomState.config.teacherPin && authHeader !== 'thpt-dth-2026') {
       return res.status(401).json({ error: 'Yêu cầu quyền giáo viên' });
@@ -276,10 +464,34 @@ async function startServer() {
     const { config, action, topics, questions } = req.body;
 
     if (action === 'reset_all') {
-      // Re-initialize state
       classroomState = createInitialState();
       saveState(classroomState);
       broadcast('session_reset', classroomState);
+
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          await supabase.from('group_submissions').update({
+            members: '',
+            answer_q1: '',
+            answer_q2: '',
+            answer_q3: '',
+            status: 'not_started',
+            submitted_at: null,
+            updated_at: new Date().toISOString(),
+          }).neq('group_id', 0);
+
+          await supabase.from('teacher_feedbacks').update({
+            general_comment: '',
+            strengths: '',
+            improvements: '',
+            suggestions: '',
+            is_reviewed: false,
+            reviewed_at: null,
+          }).neq('group_id', 0);
+        } catch (e) {}
+      }
+
       return res.json({ success: true, message: 'Đã đặt lại toàn bộ buổi học', state: classroomState });
     }
 
@@ -289,6 +501,31 @@ async function startServer() {
       classroomState.feedbacks = initial.feedbacks;
       saveState(classroomState);
       broadcast('session_reset', classroomState);
+
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          await supabase.from('group_submissions').update({
+            members: '',
+            answer_q1: '',
+            answer_q2: '',
+            answer_q3: '',
+            status: 'not_started',
+            submitted_at: null,
+            updated_at: new Date().toISOString(),
+          }).neq('group_id', 0);
+
+          await supabase.from('teacher_feedbacks').update({
+            general_comment: '',
+            strengths: '',
+            improvements: '',
+            suggestions: '',
+            is_reviewed: false,
+            reviewed_at: null,
+          }).neq('group_id', 0);
+        } catch (e) {}
+      }
+
       return res.json({ success: true, message: 'Đã xóa toàn bộ bài nộp của các nhóm', state: classroomState });
     }
 
@@ -298,6 +535,24 @@ async function startServer() {
         ...config,
         updatedAt: new Date().toISOString(),
       };
+
+      const supabase = getSupabase();
+      if (supabase) {
+        try {
+          await supabase.from('classroom_config').upsert({
+            id: 'current_session',
+            class_name: classroomState.config.className,
+            teacher_name: classroomState.config.teacherName,
+            school_name: classroomState.config.schoolName,
+            subject: classroomState.config.subject,
+            topic_title: classroomState.config.topicTitle,
+            is_open: classroomState.config.isOpen,
+            allow_editing: classroomState.config.allowEditing,
+            teacher_pin: classroomState.config.teacherPin,
+            updated_at: classroomState.config.updatedAt,
+          });
+        } catch (e) {}
+      }
     }
 
     if (Array.isArray(topics)) {
@@ -320,7 +575,7 @@ async function startServer() {
 
   // Export CSV for Teacher
   app.get('/api/export-csv', (_req: Request, res: Response) => {
-    let csv = '\uFEFF'; // UTF-8 BOM for Excel in Vietnamese
+    let csv = '\uFEFF';
     csv += 'BÁO CÁO TỔNG KẾT PHÒNG THẢO LUẬN SỐ\n';
     csv += `Chủ đề: ${classroomState.config.topicTitle}\n`;
     csv += `Môn: ${classroomState.config.subject} - Lớp: ${classroomState.config.className}\n`;
@@ -380,7 +635,6 @@ async function startServer() {
     const newClient: SSEClient = { id: clientId, res, role };
     sseClients.push(newClient);
 
-    // Initial sync
     res.write(`event: connected\ndata: ${JSON.stringify({ clientId, time: Date.now() })}\n\n`);
 
     req.on('close', () => {
@@ -388,7 +642,6 @@ async function startServer() {
     });
   });
 
-  // Vite middleware in dev or static serving in prod
   if (process.env.NODE_ENV === 'production') {
     const distPath = path.join(__dirname, 'dist');
     app.use(express.static(distPath));

@@ -3,6 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <script>
+      // Browser extension compatibility shim for window.fetch assignment
+      (function() {
+        try {
+          var originalFetch = window.fetch ? window.fetch.bind(window) : null;
+          var currentFetch = originalFetch;
+          Object.defineProperty(window, 'fetch', {
+            get: function() {
+              return currentFetch;
+            },
+            set: function(fn) {
+              currentFetch = fn;
+            },
+            configurable: true,
+            enumerable: true
+          });
+        } catch (err) {
+          // fallback if already defined
+        }
+
+        // Suppress unhandled errors originating from browser extensions
+        window.addEventListener('error', function(e) {
+          if (e.filename && e.filename.indexOf('chrome-extension://') !== -1) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        }, true);
+      })();
+    </script>
     <title>Phòng Thảo Luận Số - Tin học 10 THPT Đinh Tiên Hoàng</title>
     <meta name="description" content="Hệ thống cộng tác và thảo luận trực tuyến thời gian thực cho 12 nhóm học sinh môn Tin học 10 THPT Đinh Tiên Hoàng - GV Lê Thị Dung." />
     <meta property="og:title" content="Phòng Thảo Luận Số - Tin học 10" />
