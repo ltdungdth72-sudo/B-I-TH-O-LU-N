@@ -1,0 +1,387 @@
+{
+  "config": {
+    "classId": "10A1",
+    "className": "Lớp 10A1",
+    "subject": "Tin học 10",
+    "schoolName": "THPT Đinh Tiên Hoàng",
+    "teacherName": "Lê Thị Dung",
+    "topicTitle": "Bản quyền nội dung số, quyền lợi của tác giả và cách sử dụng nội dung số phù hợp",
+    "isOpen": true,
+    "allowEditing": true,
+    "teacherPin": "thpt-dth-2026",
+    "updatedAt": "2026-10-26T22:40:39.491Z"
+  },
+  "topics": [
+    {
+      "id": 1,
+      "title": "CHỦ ĐỀ 1: PHẦN MỀM TRẢ PHÍ VÀ BẢN QUYỀN",
+      "scenario": "Một học sinh tải phần mềm trả phí từ nguồn không chính thức và dùng bản đã bẻ khóa.",
+      "assignedGroups": [
+        1,
+        2,
+        3
+      ],
+      "color": "#2563EB",
+      "badgeBg": "bg-blue-50 text-blue-700 border-blue-200",
+      "borderColor": "border-blue-300",
+      "iconName": "software"
+    },
+    {
+      "id": 2,
+      "title": "CHỦ ĐỀ 2: SỬ DỤNG HÌNH ẢNH TRÊN INTERNET",
+      "scenario": "Lấy ảnh trên Internet đưa vào bài trình chiếu, không ghi nguồn và không kiểm tra điều kiện sử dụng.",
+      "assignedGroups": [
+        4,
+        5,
+        6
+      ],
+      "color": "#7C3AED",
+      "badgeBg": "bg-purple-50 text-purple-700 border-purple-200",
+      "borderColor": "border-purple-300",
+      "iconName": "image"
+    },
+    {
+      "id": 3,
+      "title": "CHỦ ĐỀ 3: SỬ DỤNG BÀI HÁT LÀM NHẠC NỀN",
+      "scenario": "Dùng một bài hát nổi tiếng làm nhạc nền cho video của lớp rồi đăng công khai lên mạng xã hội.",
+      "assignedGroups": [
+        7,
+        8,
+        9
+      ],
+      "color": "#E11D48",
+      "badgeBg": "bg-rose-50 text-rose-700 border-rose-200",
+      "borderColor": "border-rose-300",
+      "iconName": "music"
+    },
+    {
+      "id": 4,
+      "title": "CHỦ ĐỀ 4: SỬ DỤNG HÌNH ẢNH CÓ GIẤY PHÉP",
+      "scenario": "Tải một hình ảnh có giấy phép sử dụng, nhưng chưa đọc điều kiện giấy phép trước khi chỉnh sửa và đăng lại.",
+      "assignedGroups": [
+        10,
+        11,
+        12
+      ],
+      "color": "#059669",
+      "badgeBg": "bg-emerald-50 text-emerald-700 border-emerald-200",
+      "borderColor": "border-emerald-300",
+      "iconName": "license"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q1",
+      "title": "CÂU HỎI 1: Hành vi nào có vấn đề?",
+      "description": "Xác định cụ thể hành vi chưa đúng hoặc tiềm ẩn rủi ro trong tình huống.",
+      "placeholder": "Nhập câu trả lời của nhóm... (Ví dụ: Hành vi tải phần mềm không rõ nguồn gốc, sử dụng bản bẻ khóa là vi phạm...)",
+      "guideline": "Chỉ rõ hành vi vi phạm pháp luật hoặc chuẩn mực đạo đức số trong tình huống được giao."
+    },
+    {
+      "id": "q2",
+      "title": "CÂU HỎI 2: Quyền lợi của tác giả có thể bị ảnh hưởng như thế nào?",
+      "description": "Phân tích tác động đối với người sáng tạo (về tinh thần, kinh tế, uy tín).",
+      "placeholder": "Nhập câu trả lời của nhóm... (Ví dụ: Tác giả không nhận được tiền bản quyền xứng đáng, bị mạo danh, giảm động lực sáng tạo...)",
+      "guideline": "Phân tích cả quyền nhân thân (được đứng tên, bảo vệ sự toàn vẹn tác phẩm) và quyền tài sản (thu nhập)."
+    },
+    {
+      "id": "q3",
+      "title": "CÂU HỎI 3: Cần làm gì để sử dụng nội dung phù hợp?",
+      "description": "Đề xuất giải pháp đúng đắn, hợp pháp và văn minh khi gặp tình huống tương tự.",
+      "placeholder": "Nhập câu trả lời của nhóm... (Ví dụ: Mua bản quyền chính thức, dùng phần mềm mã nguồn mở miễn phí, xin phép tác giả...)",
+      "guideline": "Nêu các bước cụ thể: mua bản quyền, xin phép, trích dẫn nguồn hoặc dùng tài nguyên giấy phép mở (Creative Commons)."
+    }
+  ],
+  "submissions": {
+    "1": {
+      "groupId": 1,
+      "groupName": "Nhóm 1",
+      "topicId": 1,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "2": {
+      "groupId": 2,
+      "groupName": "Nhóm 2",
+      "topicId": 1,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "3": {
+      "groupId": 3,
+      "groupName": "Nhóm 3",
+      "topicId": 1,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "4": {
+      "groupId": 4,
+      "groupName": "Nhóm 4",
+      "topicId": 2,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "5": {
+      "groupId": 5,
+      "groupName": "Nhóm 5",
+      "topicId": 2,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "6": {
+      "groupId": 6,
+      "groupName": "Nhóm 6",
+      "topicId": 2,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "7": {
+      "groupId": 7,
+      "groupName": "Nhóm 7",
+      "topicId": 3,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "8": {
+      "groupId": 8,
+      "groupName": "Nhóm 8",
+      "topicId": 3,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "9": {
+      "groupId": 9,
+      "groupName": "Nhóm 9",
+      "topicId": 3,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "10": {
+      "groupId": 10,
+      "groupName": "Nhóm 10",
+      "topicId": 4,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "11": {
+      "groupId": 11,
+      "groupName": "Nhóm 11",
+      "topicId": 4,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    },
+    "12": {
+      "groupId": 12,
+      "groupName": "Nhóm 12",
+      "topicId": 4,
+      "members": "",
+      "answers": {
+        "q1": "",
+        "q2": "",
+        "q3": ""
+      },
+      "status": "not_started",
+      "submittedAt": null,
+      "updatedAt": null
+    }
+  },
+  "feedbacks": {
+    "1": {
+      "groupId": 1,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "2": {
+      "groupId": 2,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "3": {
+      "groupId": 3,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "4": {
+      "groupId": 4,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "5": {
+      "groupId": 5,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "6": {
+      "groupId": 6,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "7": {
+      "groupId": 7,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "8": {
+      "groupId": 8,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "9": {
+      "groupId": 9,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "10": {
+      "groupId": 10,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "11": {
+      "groupId": 11,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    },
+    "12": {
+      "groupId": 12,
+      "generalComment": "",
+      "strengths": "",
+      "improvements": "",
+      "suggestions": "",
+      "isReviewed": false,
+      "reviewedAt": null,
+      "reviewedBy": "Cô Lê Thị Dung"
+    }
+  }
+}
