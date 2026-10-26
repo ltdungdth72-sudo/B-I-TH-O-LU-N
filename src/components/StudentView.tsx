@@ -75,11 +75,16 @@ export const StudentView: React.FC = () => {
       if (localDraft) {
         try {
           const parsed = JSON.parse(localDraft);
-          // If local draft is newer, restore it
+          // If local draft is newer, restore it and sync to server
           if (parsed.timestamp && (!currentSubmission.updatedAt || parsed.timestamp > new Date(currentSubmission.updatedAt).getTime())) {
             setAnswers(parsed.answers || { q1: '', q2: '', q3: '' });
             if (parsed.members) setMembers(parsed.members);
             setDraftSavedAt(new Date(parsed.timestamp).toLocaleTimeString('vi-VN'));
+            if (parsed.answers && (parsed.answers.q1 || parsed.answers.q2 || parsed.answers.q3)) {
+              saveDraft(selectedGroupId, parsed.answers, parsed.members).then((res) => {
+                if (res.success) setHasUnsyncedDraft(false);
+              });
+            }
             return;
           }
         } catch (e) {
@@ -104,6 +109,14 @@ export const StudentView: React.FC = () => {
         setAnswers(parsed.answers || { q1: '', q2: '', q3: '' });
         if (parsed.members) setMembers(parsed.members);
         setDraftSavedAt(new Date(parsed.timestamp).toLocaleTimeString('vi-VN'));
+        // Automatically sync pending local draft to server so teacher and system receive it
+        if (parsed.answers && (parsed.answers.q1 || parsed.answers.q2 || parsed.answers.q3)) {
+          setIsSavingDraft(true);
+          saveDraft(selectedGroupId, parsed.answers, parsed.members).then((res) => {
+            setIsSavingDraft(false);
+            if (res.success) setHasUnsyncedDraft(false);
+          });
+        }
       } catch (e) {
         // ignore
       }
@@ -122,7 +135,7 @@ export const StudentView: React.FC = () => {
 
     if (!selectedGroupId) return;
 
-    // Save to local storage immediately
+    // Save to local storage immediately as instant safety net
     const now = Date.now();
     localStorage.setItem(
       `ptls_draft_group_${selectedGroupId}`,
@@ -130,16 +143,20 @@ export const StudentView: React.FC = () => {
     );
     setDraftSavedAt(new Date(now).toLocaleTimeString('vi-VN'));
 
-    // Debounced sync to server if online
+    // Debounced sync to server
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     debounceTimerRef.current = setTimeout(async () => {
-      if (connected && selectedGroupId) {
+      if (selectedGroupId) {
         setIsSavingDraft(true);
-        await saveDraft(selectedGroupId, updated, members);
+        const res = await saveDraft(selectedGroupId, updated, members);
         setIsSavingDraft(false);
-        setHasUnsyncedDraft(false);
+        if (res.success) {
+          setHasUnsyncedDraft(false);
+        } else {
+          setHasUnsyncedDraft(true);
+        }
       }
-    }, 1500);
+    }, 1200);
   };
 
   const handleManualSaveDraft = async () => {
@@ -152,16 +169,17 @@ export const StudentView: React.FC = () => {
     );
     setDraftSavedAt(new Date(now).toLocaleTimeString('vi-VN'));
 
-    if (connected) {
-      await saveDraft(selectedGroupId, answers, members);
+    const res = await saveDraft(selectedGroupId, answers, members);
+    setIsSavingDraft(false);
+
+    if (res.success) {
       setHasUnsyncedDraft(false);
-      setSuccessToast('Đã lưu bản nháp lên máy chủ thành công');
+      setSuccessToast('✓ Đã lưu câu trả lời lên hệ thống và Supabase thành công!');
     } else {
       setHasUnsyncedDraft(true);
-      setSuccessToast('Đã lưu bản nháp an toàn trên máy (đang ngoại tuyến)');
+      setSuccessToast('Đã lưu bản nháp an toàn trên máy (sẽ tự động đồng bộ khi kết nối lại)');
     }
-    setIsSavingDraft(false);
-    setTimeout(() => setSuccessToast(null), 3000);
+    setTimeout(() => setSuccessToast(null), 3500);
   };
 
   // Pre-submit validation

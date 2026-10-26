@@ -28,7 +28,7 @@ interface ClassroomContextType {
     groupId: number,
     answers: { q1: string; q2: string; q3: string },
     members?: string
-  ) => Promise<void>;
+  ) => Promise<{ success: boolean; submission?: any; error?: string }>;
   saveFeedback: (groupId: number, feedback: Partial<TeacherFeedback>) => Promise<boolean>;
   updateConfig: (config?: any, action?: string) => Promise<boolean>;
   dismissNewAlert: () => void;
@@ -117,6 +117,7 @@ export const ClassroomProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         const data = await res.json();
         setState(data);
         setLastSyncedAt(new Date());
+        setConnected(true);
       }
     } catch (err) {
       console.warn('Network sync error:', err);
@@ -129,87 +130,123 @@ export const ClassroomProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     fetchSession();
   }, [fetchSession]);
 
-  // Server-Sent Events setup
+  // Online / Offline window listeners
+  useEffect(() => {
+    const handleOnline = () => {
+      setConnected(true);
+      fetchSession();
+    };
+    const handleOffline = () => {
+      setConnected(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [fetchSession]);
+
+  // Server-Sent Events setup with resilient heartbeat
   useEffect(() => {
     let sse: EventSource | null = null;
     let reconnectTimeout: any = null;
 
     const connectSSE = () => {
-      sse = new EventSource('/api/events');
+      try {
+        sse = new EventSource('/api/events');
 
-      sse.onopen = () => {
-        setConnected(true);
-      };
+        sse.onopen = () => {
+          setConnected(true);
+        };
 
-      sse.onmessage = (e) => {
-        try {
-          const payload = JSON.parse(e.data);
-          if (payload.type === 'submission_received') {
-            const { groupId, submission } = payload.payload;
-            setState((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                submissions: {
-                  ...prev.submissions,
-                  [groupId]: submission,
-                },
-              };
-            });
-            setNewSubmissionAlert(groupId);
-            soundManager.playNewSubmissionPing();
-          } else if (payload.type === 'draft_updated') {
-            const { groupId, submission } = payload.payload;
-            setState((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                submissions: {
-                  ...prev.submissions,
-                  [groupId]: submission,
-                },
-              };
-            });
-          } else if (payload.type === 'feedback_updated') {
-            const { groupId, feedback, submission } = payload.payload;
-            setState((prev) => {
-              if (!prev) return prev;
-              return {
-                ...prev,
-                feedbacks: {
-                  ...prev.feedbacks,
-                  [groupId]: feedback,
-                },
-                submissions: {
-                  ...prev.submissions,
-                  [groupId]: submission,
-                },
-              };
-            });
-            soundManager.playReviewSavedChime();
-          } else if (payload.type === 'config_updated' || payload.type === 'session_reset') {
-            fetchSession();
+        sse.onmessage = (e) => {
+          try {
+            const payload = JSON.parse(e.data);
+            setConnected(true);
+
+            if (payload.type === 'submission_received') {
+              const { groupId, submission } = payload.payload;
+              setState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  submissions: {
+                    ...prev.submissions,
+                    [groupId]: submission,
+                  },
+                };
+              });
+              setNewSubmissionAlert(groupId);
+              soundManager.playNewSubmissionPing();
+            } else if (payload.type === 'draft_updated') {
+              const { groupId, submission } = payload.payload;
+              setState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  submissions: {
+                    ...prev.submissions,
+                    [groupId]: submission,
+                  },
+                };
+              });
+            } else if (payload.type === 'feedback_updated') {
+              const { groupId, feedback, submission } = payload.payload;
+              setState((prev) => {
+                if (!prev) return prev;
+                return {
+                  ...prev,
+                  feedbacks: {
+                    ...prev.feedbacks,
+                    [groupId]: feedback,
+                  },
+                  submissions: {
+                    ...prev.submissions,
+                    [groupId]: submission,
+                  },
+                };
+              });
+              soundManager.playReviewSavedChime();
+            } else if (payload.type === 'config_updated' || payload.type === 'session_reset') {
+              fetchSession();
+            }
+          } catch (err) {
+            console.error('Error handling SSE message:', err);
           }
-        } catch (err) {
-          console.error('Error handling SSE message:', err);
-        }
-      };
+        };
 
-      sse.onerror = () => {
+        sse.onerror = () => {
+          // If SSE drops, fall back to checking HTTP health instead of immediately showing offline
+          if (sse) {
+            sse.close();
+          }
+          fetch('/api/health')
+            .then((r) => {
+              if (r.ok) {
+                setConnected(true);
+              } else {
+                setConnected(false);
+              }
+            })
+            .catch(() => setConnected(false));
+
+          reconnectTimeout = setTimeout(connectSSE, 3000);
+        };
+      } catch (err) {
         setConnected(false);
-        if (sse) {
-          sse.close();
-        }
-        reconnectTimeout = setTimeout(connectSSE, 3000);
-      };
+        reconnectTimeout = setTimeout(connectSSE, 4000);
+      }
     };
 
     connectSSE();
 
-    // Fallback polling every 5s if disconnected
+    // Fallback polling every 5s
     const pollInterval = setInterval(() => {
       fetchSession();
-    }, 6000);
+    }, 5000);
 
     return () => {
       if (sse) sse.close();
@@ -256,6 +293,8 @@ export const ClassroomProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       const data = await res.json();
       if (res.ok && data.success) {
+        setConnected(true);
+        setLastSyncedAt(new Date());
         setState((prev) => {
           if (!prev) return prev;
           return {
@@ -282,15 +321,15 @@ export const ClassroomProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     groupId: number,
     answers: { q1: string; q2: string; q3: string },
     members?: string
-  ) => {
+  ): Promise<{ success: boolean; submission?: any; error?: string }> => {
     try {
       const res = await fetch('/api/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ groupId, answers, members }),
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = await res.json();
+      if (res.ok && data.success) {
         if (data.submission) {
           setState((prev) => {
             if (!prev) return prev;
@@ -303,9 +342,16 @@ export const ClassroomProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             };
           });
         }
+        setConnected(true);
+        setLastSyncedAt(new Date());
+        return { success: true, submission: data.submission };
       }
-    } catch (err) {
-      // offline draft save handled locally
+      return { success: false, error: data.error || 'Không thể lưu bản nháp lên máy chủ.' };
+    } catch (err: any) {
+      return {
+        success: false,
+        error: err?.message || 'Không thể kết nối tới máy chủ.',
+      };
     }
   };
 

@@ -123,7 +123,7 @@ async function writeSubmissionToSupabase(sub: any) {
   const supabase = getSupabase();
   if (!supabase) return;
   try {
-    await supabase.from('group_submissions').upsert({
+    const { error } = await supabase.from('group_submissions').upsert({
       group_id: sub.groupId,
       group_name: sub.groupName,
       topic_id: sub.topicId,
@@ -135,6 +135,11 @@ async function writeSubmissionToSupabase(sub: any) {
       submitted_at: sub.submittedAt,
       updated_at: sub.updatedAt,
     });
+    if (error) {
+      console.warn('[Supabase] Error writing submission:', error);
+    } else {
+      console.log(`[Supabase] Synced submission for Group ${sub.groupId} (${sub.status})`);
+    }
   } catch (e) {
     console.warn('[Supabase] Failed to write submission:', e);
   }
@@ -171,7 +176,7 @@ function broadcast(eventType: string, payload: any) {
   const data = JSON.stringify({ type: eventType, payload, timestamp: Date.now() });
   sseClients.forEach((client) => {
     try {
-      client.res.write(`event: message\ndata: ${data}\n\n`);
+      client.res.write(`data: ${data}\n\n`);
     } catch (err) {
       // client may be closed
     }
@@ -631,18 +636,34 @@ async function startServer() {
   // Server-Sent Events (SSE) stream for real-time updates
   app.get('/api/events', (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
     res.setHeader('X-Accel-Buffering', 'no');
+    res.setHeader('Content-Encoding', 'none');
+    if (typeof (res as any).flushHeaders === 'function') {
+      (res as any).flushHeaders();
+    }
 
     const clientId = Math.random().toString(36).substring(2, 9);
     const role = (req.query.role as 'teacher' | 'student') || 'student';
     const newClient: SSEClient = { id: clientId, res, role };
     sseClients.push(newClient);
 
-    res.write(`event: connected\ndata: ${JSON.stringify({ clientId, time: Date.now() })}\n\n`);
+    // Initial ping and event
+    res.write(`: ping\n\n`);
+    res.write(`data: ${JSON.stringify({ type: 'connected', clientId, time: Date.now() })}\n\n`);
+
+    // Keep-alive heartbeat every 15s to keep Cloud Run / reverse proxies alive
+    const heartbeat = setInterval(() => {
+      try {
+        res.write(`: heartbeat\n\n`);
+      } catch (err) {
+        clearInterval(heartbeat);
+      }
+    }, 15000);
 
     req.on('close', () => {
+      clearInterval(heartbeat);
       sseClients = sseClients.filter((c) => c.id !== clientId);
     });
   });
